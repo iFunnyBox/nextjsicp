@@ -1,4 +1,17 @@
 export const idlFactory = ({ IDL }) => {
+  const SetPermissions = IDL.Record({
+    'prepare' : IDL.Vec(IDL.Principal),
+    'commit' : IDL.Vec(IDL.Principal),
+    'manage_permissions' : IDL.Vec(IDL.Principal),
+  });
+  const UpgradeArgs = IDL.Record({
+    'set_permissions' : IDL.Opt(SetPermissions),
+  });
+  const InitArgs = IDL.Record({ 'set_permissions' : IDL.Opt(SetPermissions) });
+  const AssetCanisterArgs = IDL.Variant({
+    'Upgrade' : UpgradeArgs,
+    'Init' : InitArgs,
+  });
   const ClearArguments = IDL.Record({});
   const BatchId = IDL.Nat;
   const Key = IDL.Text;
@@ -29,6 +42,7 @@ export const idlFactory = ({ IDL }) => {
     'sha256' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'chunk_ids' : IDL.Vec(ChunkId),
     'content_encoding' : IDL.Text,
+    'last_chunk' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
   const BatchOperationKind = IDL.Variant({
     'SetAssetProperties' : SetAssetPropertiesArguments,
@@ -100,6 +114,7 @@ export const idlFactory = ({ IDL }) => {
   const HttpResponse = IDL.Record({
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(HeaderField),
+    'upgrade' : IDL.Opt(IDL.Bool),
     'streaming_strategy' : IDL.Opt(StreamingStrategy),
     'status_code' : IDL.Nat16,
   });
@@ -141,6 +156,16 @@ export const idlFactory = ({ IDL }) => {
     'create_chunk' : IDL.Func(
         [IDL.Record({ 'content' : IDL.Vec(IDL.Nat8), 'batch_id' : BatchId })],
         [IDL.Record({ 'chunk_id' : ChunkId })],
+        [],
+      ),
+    'create_chunks' : IDL.Func(
+        [
+          IDL.Record({
+            'content' : IDL.Vec(IDL.Vec(IDL.Nat8)),
+            'batch_id' : BatchId,
+          }),
+        ],
+        [IDL.Record({ 'chunk_ids' : IDL.Vec(ChunkId) })],
         [],
       ),
     'deauthorize' : IDL.Func([IDL.Principal], [], []),
@@ -211,12 +236,8 @@ export const idlFactory = ({ IDL }) => {
         ],
         ['query'],
       ),
-    'list_authorized' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
-    'list_permitted' : IDL.Func(
-        [ListPermitted],
-        [IDL.Vec(IDL.Principal)],
-        ['query'],
-      ),
+    'list_authorized' : IDL.Func([], [IDL.Vec(IDL.Principal)], []),
+    'list_permitted' : IDL.Func([ListPermitted], [IDL.Vec(IDL.Principal)], []),
     'propose_commit_batch' : IDL.Func([CommitBatchArguments], [], []),
     'revoke_permission' : IDL.Func([RevokePermission], [], []),
     'set_asset_content' : IDL.Func([SetAssetContentArguments], [], []),
@@ -259,4 +280,19 @@ export const idlFactory = ({ IDL }) => {
     'validate_take_ownership' : IDL.Func([], [ValidationResult], []),
   });
 };
-export const init = ({ IDL }) => { return []; };
+export const init = ({ IDL }) => {
+  const SetPermissions = IDL.Record({
+    'prepare' : IDL.Vec(IDL.Principal),
+    'commit' : IDL.Vec(IDL.Principal),
+    'manage_permissions' : IDL.Vec(IDL.Principal),
+  });
+  const UpgradeArgs = IDL.Record({
+    'set_permissions' : IDL.Opt(SetPermissions),
+  });
+  const InitArgs = IDL.Record({ 'set_permissions' : IDL.Opt(SetPermissions) });
+  const AssetCanisterArgs = IDL.Variant({
+    'Upgrade' : UpgradeArgs,
+    'Init' : InitArgs,
+  });
+  return [IDL.Opt(AssetCanisterArgs)];
+};

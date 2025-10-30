@@ -4,7 +4,7 @@ import { Actor, HttpAgent } from "@dfinity/agent";
 import { idlFactory } from './erc20icp.did.js';
 export { idlFactory } from './erc20icp.did.js';
 // CANISTER_ID is replaced by webpack based on node environment
-export const canisterId = process.env.NEXT_PUBLIC_ERC20ICP_CANISTER_ID;
+export const canisterId = process.env.CANISTER_ID_ERC20ICP;
 
 /**
  * @deprecated since dfx 0.11.1

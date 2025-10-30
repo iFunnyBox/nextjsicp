@@ -1,11 +1,23 @@
 {
-    "canisters": {
-      "erc20icp": {
-        "frontend": {
-          "entrypoint": "out/index.html"
-        },
-        "source": ["out"],
-        "type": "assets"
-      }
+  "canisters": {
+    "erc20icp": {
+      "frontend": {
+        "entrypoint": "out/index.html"
+      },
+      "source": ["out"],
+      "type": "assets"
     }
+  },
+  "networks": {
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent",
+      "identity": "mainnet_identity"
+    },
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral",
+      "identity": "dev_identity"
+    }
+  }
 }

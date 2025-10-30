@@ -12,7 +12,6 @@ body {
   min-height: 100vh;
   text-rendering: optimizeSpeed;
   line-height: 1.5;
-  padding-bottom: 250px;
 }
 
 /* Inherit fonts for inputs and buttons */
@@ -34,7 +33,6 @@ body {
   background: var(--black);
   font-family: "Inter", sans-serif;
   color: var(--white);
-  display: flex;
   margin: 0;
   text-align: center;
 }
