@@ -1,9 +1,6 @@
 export type SlotId = string;
 
-export type SlotStatus =
-  | "available"
-  | "locked"
-  | "booked";
+export type SlotStatus = "available" | "locked" | "booked";
 
 export interface TimeSlot {
   id: SlotId;
@@ -11,7 +8,7 @@ export interface TimeSlot {
   // 新增：用于显示的时间段标签，例如 "10:00-11:00"
   label: string;
   // 新增：剩余可预约数量
-  remaining: number;
+  booked: boolean;
   // 可选：锁拥有者，用于诊断/演示；真实后端可不返回
   lockedBy?: string;
   // 已预定者，演示用途
@@ -76,5 +73,3 @@ export type SlotsUpdateEvent = {
   slots: TimeSlot[];
   version: number;
 };
-
-

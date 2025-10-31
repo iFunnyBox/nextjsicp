@@ -3,9 +3,15 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ["gateway.ipfscdn.io"],
-    unoptimized: true
+    unoptimized: true,
   },
   output: 'export',
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.devtool = "source-map";
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

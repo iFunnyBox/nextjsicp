@@ -1,6 +1,6 @@
 {
   "canisters": {
-    "erc20icp": {
+    "reserveicp": {
       "frontend": {
         "entrypoint": "out/index.html"
       },

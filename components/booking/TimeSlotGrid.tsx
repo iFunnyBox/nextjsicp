@@ -1,4 +1,5 @@
 import React from "react";
+import { useState, useEffect, useCallback } from "react";
 import { bookingClient } from "../../lib/bookingClient";
 import type { TimeSlot } from "../../types/booking";
 
@@ -16,7 +17,7 @@ type LocalState = {
 };
 
 export function TimeSlotGrid(): JSX.Element {
-  const [state, setState] = React.useState<LocalState>(() => ({
+  const [state, setState] = useState<LocalState>(() => ({
     version: 0,
     slots: [],
     transient: {},
@@ -24,10 +25,10 @@ export function TimeSlotGrid(): JSX.Element {
     myBooked: {},
     userId: `u_${Math.random().toString(36).slice(2, 8)}`,
   }));
-  const [cols, setCols] = React.useState<number>(1);
+  const [cols, setCols] = useState<number>(1);
 
   // 响应式列数（移动端优先）
-  React.useEffect(() => {
+  useEffect(() => {
     const compute = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 375;
       // iPhone 16/16 Pro 等新机型的逻辑像素宽度约在 390~430 区间（横向窄边）
@@ -44,7 +45,7 @@ export function TimeSlotGrid(): JSX.Element {
   }, []);
 
   // 初始加载
-  React.useEffect(() => {
+  useEffect(() => {
     let mounted = true;
     bookingClient.listSlots({}).then((res) => {
       if (!mounted) return;
@@ -65,7 +66,7 @@ export function TimeSlotGrid(): JSX.Element {
     };
   }, []);
 
-  const onClickAvailable = React.useCallback(
+  const onClickAvailable = useCallback(
     async (slotId: string) => {
       if (state.transient[slotId]) return;
       if (state.myBooked[slotId]) return; // 已预约则不再重复预约
@@ -105,7 +106,9 @@ export function TimeSlotGrid(): JSX.Element {
         myLocks: { ...s.myLocks, [slotId]: lockRes.lock!.lockId },
         transient: { ...s.transient, [slotId]: "confirming" },
         version: lockRes.version,
-        message: `预定中：${s.slots.find((x) => x.id === slotId)?.label ?? slotId}`,
+        message: `预定中：${
+          s.slots.find((x) => x.id === slotId)?.label ?? slotId
+        }`,
       }));
 
       const confirmRes = await bookingClient.confirmBooking({
@@ -133,13 +136,15 @@ export function TimeSlotGrid(): JSX.Element {
         myLocks: omitKey(s.myLocks, slotId),
         myBooked: { ...s.myBooked, [slotId]: true },
         version: confirmRes.version,
-        message: `预定成功：${s.slots.find((x) => x.id === slotId)?.label ?? slotId}`,
+        message: `预定成功：${
+          s.slots.find((x) => x.id === slotId)?.label ?? slotId
+        }`,
       }));
     },
     [state.version, state.userId, state.transient]
   );
 
-  const onConfirm = React.useCallback(
+  const onConfirm = useCallback(
     async (slotId: string) => {
       const lockId = state.myLocks[slotId];
       if (!lockId) return;
@@ -151,7 +156,10 @@ export function TimeSlotGrid(): JSX.Element {
         message: undefined,
       }));
 
-      const res = await bookingClient.confirmBooking({ lockId, userId: state.userId });
+      const res = await bookingClient.confirmBooking({
+        lockId,
+        userId: state.userId,
+      });
       if (!res.ok) {
         // 回滚：删除本地锁引用 & 清理transient
         setState((s) => ({
@@ -174,23 +182,6 @@ export function TimeSlotGrid(): JSX.Element {
         myLocks: omitKey(s.myLocks, slotId),
         version: res.version,
         message: `预定成功：${slotId}`,
-      }));
-    },
-    [state.myLocks, state.userId]
-  );
-
-  const onCancelLock = React.useCallback(
-    async (slotId: string) => {
-      const lockId = state.myLocks[slotId];
-      if (!lockId) return;
-      setState((s) => ({ ...s, message: undefined }));
-      const res = await bookingClient.releaseLock({ lockId, userId: state.userId });
-      setState((s) => ({
-        ...s,
-        myLocks: omitKey(s.myLocks, slotId),
-        transient: omitKey(s.transient, slotId),
-        version: res.version ?? s.version,
-        message: res.ok ? `已取消锁定 ${slotId}` : `取消失败`,
       }));
     },
     [state.myLocks, state.userId]
@@ -224,7 +215,9 @@ export function TimeSlotGrid(): JSX.Element {
         aria-label="可预定时间段列表"
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${cols}, minmax(${cols >= 4 ? 72 : 120}px, 1fr))`,
+          gridTemplateColumns: `repeat(${cols}, minmax(${
+            cols >= 4 ? 72 : 120
+          }px, 1fr))`,
           gap: 8,
           justifyContent: "center",
           width: "100%",
@@ -235,18 +228,21 @@ export function TimeSlotGrid(): JSX.Element {
           const transient = state.transient[slot.id];
           const iOwnLock = !!state.myLocks[slot.id];
           const statusLabel = (() => {
-            if (transient === "locking" || transient === "confirming") return "预定中...";
+            if (transient === "locking" || transient === "confirming")
+              return "预定中...";
             if (state.myBooked[slot.id]) return "已预定"; // 我已预约
             if (slot.status === "booked") return "已预定"; // 全量占满
-            if (slot.remaining <= 0) return "已锁定";
-            return `可用（余 ${slot.remaining}）`;
+            if (slot.booked) return "已锁定";
+            return `可用`;
           })();
 
           // 三态背景：可用(绿)、已锁定(灰)、已预定(红)。处理过渡态为黄。
           const bg = (() => {
-            if (transient === "locking" || transient === "confirming") return "#fde68a"; // 过渡
-            if (state.myBooked[slot.id] || slot.status === "booked") return "#fee2e2"; // 已预定
-            if (slot.remaining <= 0) return "#e5e7eb"; // 已锁定
+            if (transient === "locking" || transient === "confirming")
+              return "#fde68a"; // 过渡
+            if (state.myBooked[slot.id] || slot.status === "booked")
+              return "#fee2e2"; // 已预定
+            if (slot.booked) return "#e5e7eb"; // 已锁定
             return "#ecfdf5"; // 可用
           })();
 
@@ -254,7 +250,12 @@ export function TimeSlotGrid(): JSX.Element {
             <div
               key={slot.id}
               role="gridcell"
-              aria-selected={slot.status === "booked" || (slot.status === "locked" && iOwnLock) ? true : false}
+              aria-selected={
+                slot.status === "booked" ||
+                (slot.status === "locked" && iOwnLock)
+                  ? true
+                  : false
+              }
               aria-busy={transient ? true : undefined}
               tabIndex={0}
               style={{
@@ -273,16 +274,34 @@ export function TimeSlotGrid(): JSX.Element {
                 if (slot.status === "available" && !transient) {
                   e.preventDefault();
                   onClickAvailable(slot.id);
-                } else if (slot.status === "locked" && iOwnLock && transient !== "confirming") {
+                } else if (
+                  slot.status === "locked" &&
+                  iOwnLock &&
+                  transient !== "confirming"
+                ) {
                   e.preventDefault();
                   onConfirm(slot.id);
                 }
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{slot.label}</div>
-              <div style={{ fontSize: 12, color: "#1f2937", minHeight: 18 }}>{statusLabel}</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", minHeight: 36 }}>
-                {!state.myBooked[slot.id] && slot.status !== "booked" && slot.remaining > 0 && !transient ? (
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>
+                {slot.label}
+              </div>
+              <div style={{ fontSize: 12, color: "#1f2937", minHeight: 18 }}>
+                {statusLabel}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  minHeight: 36,
+                }}
+              >
+                {!state.myBooked[slot.id] &&
+                slot.status !== "booked" &&
+                !slot.booked &&
+                !transient ? (
                   <button
                     onClick={() => onClickAvailable(slot.id)}
                     aria-label={`预定 ${slot.label}`}
@@ -300,7 +319,9 @@ export function TimeSlotGrid(): JSX.Element {
                   </button>
                 ) : null}
                 {/* 无二次确认与取消按钮，锁定成功后即自动确认 */}
-                {!state.myBooked[slot.id] && slot.status !== "booked" && slot.remaining <= 0 ? (
+                {!state.myBooked[slot.id] &&
+                slot.status !== "booked" &&
+                slot.booked ? (
                   <button
                     disabled
                     aria-disabled
@@ -349,5 +370,3 @@ function omitKey<T extends Record<string, any>>(obj: T, key: string): T {
 }
 
 export default TimeSlotGrid;
-
-

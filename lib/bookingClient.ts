@@ -31,17 +31,17 @@ class MockServer {
   constructor() {
     // 初始化一些连续且不冲突的时间段（例如 10:00-11:00 起，12 个小时段）
     const startHour = 10;
-    const initial: TimeSlot[] = Array.from({ length: 12 }).map((_, i) => {
+    const initial: TimeSlot[] = Array.from({ length: Math.floor(Math.random() * 5) + 5 }).map((_, i) => {
       const from = startHour + i;
       const to = from + 1;
       const fmt = (h: number) => `${String(h).padStart(2, "0")}:00`;
       const label = `${fmt(from)}-${fmt(to)}`;
-      const zeroLocked = Math.random() < 0.4; // 约 40% 直接为锁定（余量=0）
+      const locked = Math.random() < 0.4; // 约 40% 直接为锁定
       return {
         id: `slot-${i + 1}`,
         label,
         status: "available",
-        remaining: zeroLocked ? 0 : Math.floor(Math.random() * 3) + 1, // 0 或 1~3
+        booked: locked,
       } as TimeSlot;
     });
     initial.forEach((s) => this.slots.set(s.id, s));
@@ -53,7 +53,11 @@ class MockServer {
   private bumpVersionAndBroadcast() {
     this.version += 1;
     const slots = Array.from(this.slots.values());
-    const evt: SlotsUpdateEvent = { type: "slots:update", slots, version: this.version };
+    const evt: SlotsUpdateEvent = {
+      type: "slots:update",
+      slots,
+      version: this.version,
+    };
     this.subscribers.forEach((fn) => fn(evt));
   }
 
@@ -105,7 +109,7 @@ class MockServer {
     if (slot.status === "booked") {
       return { ok: false, version: this.version, error: "AlreadyBooked" };
     }
-    if (slot.remaining <= 0) {
+    if (slot.booked) {
       return { ok: false, version: this.version, error: "AlreadyBooked" };
     }
     if (slot.status === "locked" && slot.lockedBy !== req.userId) {
@@ -131,20 +135,26 @@ class MockServer {
     };
   }
 
-  async confirmBooking(req: ConfirmBookingRequest): Promise<ConfirmBookingResponse> {
+  async confirmBooking(
+    req: ConfirmBookingRequest
+  ): Promise<ConfirmBookingResponse> {
     await delay(200);
     const rec = this.locks.get(req.lockId);
-    if (!rec) return { ok: false, version: this.version, error: "LockNotFound" };
-    if (rec.userId !== req.userId) return { ok: false, version: this.version, error: "LockNotFound" };
-    if (rec.expiresAt <= Date.now()) return { ok: false, version: this.version, error: "LockExpired" };
+    if (!rec)
+      return { ok: false, version: this.version, error: "LockNotFound" };
+    if (rec.userId !== req.userId)
+      return { ok: false, version: this.version, error: "LockNotFound" };
+    if (rec.expiresAt <= Date.now())
+      return { ok: false, version: this.version, error: "LockExpired" };
 
     const slot = this.slots.get(rec.slotId);
     if (!slot) return { ok: false, version: this.version, error: "NotFound" };
-    if (slot.status === "booked") return { ok: false, version: this.version, error: "AlreadyBooked" };
-    if (slot.remaining <= 0) return { ok: false, version: this.version, error: "AlreadyBooked" };
+    if (slot.status === "booked")
+      return { ok: false, version: this.version, error: "AlreadyBooked" };
+    if (slot.booked)
+      return { ok: false, version: this.version, error: "AlreadyBooked" };
 
-    // 递减余量；后端不维护“用户是否已预约”，仅维护 remaining
-    slot.remaining = Math.max(0, slot.remaining - 1);
+    slot.booked = false;
     // 释放锁并恢复为可锁定态（UI 将基于 remaining 展示 可用/已锁定）
     slot.lockedBy = undefined;
     slot.status = "available";
@@ -156,8 +166,10 @@ class MockServer {
   async releaseLock(req: ReleaseLockRequest): Promise<ReleaseLockResponse> {
     await delay(120);
     const rec = this.locks.get(req.lockId);
-    if (!rec) return { ok: false, version: this.version, error: "LockNotFound" };
-    if (rec.userId !== req.userId) return { ok: false, version: this.version, error: "Forbidden" };
+    if (!rec)
+      return { ok: false, version: this.version, error: "LockNotFound" };
+    if (rec.userId !== req.userId)
+      return { ok: false, version: this.version, error: "Forbidden" };
 
     const slot = this.slots.get(rec.slotId);
     this.locks.delete(req.lockId);
@@ -184,5 +196,3 @@ export const bookingClient = {
 function delay(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
-
-
